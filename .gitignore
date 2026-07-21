@@ -1,0 +1,21 @@
+# macOS
+.DS_Store
+._*
+
+# Vercel
+.vercel
+
+# Node, if tooling is ever added
+node_modules/
+npm-debug.log*
+
+# ── Real family data — must never be committed ────────────────────────────
+# The likeliest way this happens: you test the deployed app, hit "Download my
+# tree", and the file lands in this folder. Anyone who clones the repo would
+# then get those people's names, birthdates and locations.
+*-PRIVATE.json
+kinship-*.json
+*.tree.json
+
+# Folder snapshots
+kinship-backup-*.zip

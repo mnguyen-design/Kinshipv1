@@ -1,0 +1,9 @@
+# Vercel only needs the app and its config. Without this, the docs below would
+# each be publicly fetchable at their own URL.
+
+*.md
+*.zip
+*.make
+*.json
+!vercel.json
+.DS_Store

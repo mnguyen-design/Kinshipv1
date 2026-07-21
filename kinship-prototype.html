@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Kinship 親情 — prototype</title>
+<link rel="icon" type="image/png" id="favicon" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=Noto+Serif+SC:wght@400;500;600&display=swap" rel="stylesheet">
@@ -32,7 +33,8 @@
     border-bottom: 1px solid rgba(42,31,20,0.10);
     display: flex; align-items: center; padding: 0 24px; gap: 26px;
   }
-  .logo { display: flex; align-items: baseline; gap: 10px; flex-shrink: 0; }
+  .logo { display: flex; align-items: center; gap: 9px; flex-shrink: 0; }
+  .logo img { display: block; flex-shrink: 0; }
   .logo b { font-family: 'Lora', serif; font-size: 21px; font-weight: 600; }
   .logo span { font-size: 15px; color: #A89880; letter-spacing: 0.1em; }
 
@@ -1205,15 +1207,36 @@ function spouseTermFor(bloodTerm, bloodId, spouseId, fromId) {
 
     if (link && link.dF === 1 && link.dT === 1) {            // your sibling
       if (!bloodKnown) return null;
-      if (blood.gender === 'male') {
-        var bAge = relativeAge(fromId, bloodId);
-        if (!bAge) return null;              // 嫂 vs 細姆 turns on his age
-        return clone(TERM_TABLE[bAge === 'older' ? 'brother-wife' : 'younger-brother-wife'], {});
+      var sibAge = relativeAge(fromId, bloodId);
+      if (!sibAge) return null;              // every sibling-spouse term turns on age
+      var sibIsBrother = blood.gender === 'male';
+      var key = sibIsBrother
+        ? (sibAge === 'older' ? 'brother-wife' : 'younger-brother-wife')
+        : (sibAge === 'older' ? 'elder-sister-husband' : 'younger-sister-husband');
+      var sibTerm = clone(TERM_TABLE[key], {});
+
+      // The established terms all assume an opposite-sex marriage: 嫂 is a
+      // brother's *wife*, 姊夫 an elder sister's *husband*. When the spouse's
+      // own gender doesn't match that assumption there is no attested term, so
+      // the closest one is offered and plainly marked as uncertain rather than
+      // presented as correct.
+      var expected = sibIsBrother ? 'female' : 'male';
+      if (spouse.gender !== expected) {
+        var sibWord = sibIsBrother
+          ? (sibAge === 'older' ? 'elder brother' : 'younger brother')
+          : (sibAge === 'older' ? 'elder sister' : 'younger sister');
+        var spouseWord = spouse.gender === 'female' ? 'wife' : 'husband';
+        return clone(sibTerm, {
+          guaranteed: false,
+          provisional: true,
+          breakdown: 'The ' + spouseWord + ' of your ' + sibWord +
+                     ' \u2014 borrowing the term for ' + (/^[aeiou]/i.test(sibWord) ? 'an ' : 'a ') + sibWord + '\u2019s ' +
+                     (sibIsBrother ? 'wife' : 'husband'),
+          note: 'There is no established Teochew term for a same-sex spouse here. ' +
+                'This borrows the closest one and may not be what your family says.'
+        });
       }
-      var age = relativeAge(fromId, bloodId);
-      if (!age) return null;                                 // which sister is older is unknown
-      return clone(TERM_TABLE[age === 'older' ? 'elder-sister-husband'
-                                              : 'younger-sister-husband'], {});
+      return sibTerm;
     }
 
     /* 孫婿 covers the spouse of anyone else you address as 孫 — a grandchild,
@@ -1757,7 +1780,8 @@ function navHtml() {
   }
 
   return '<header class="nav">' +
-    '<div class="logo"><b>Kinship</b><span class="han">親情</span></div>' +
+    '<div class="logo"><img src="' + LOGO_SRC + '" alt="" width="38" height="38" />' +
+    '<b>Kinship</b><span class="han">親情</span></div>' +
     '<nav class="tabs">' + tabs + '</nav>' +
     '<div style="position:relative;flex-shrink:0">' +
     '<button class="navbtn" data-act="toggle-lang">' +
@@ -1881,9 +1905,18 @@ function welcomeScreen() {
 
   return '<div style="display:flex;width:100%;height:100%;overflow:hidden">' +
     '<div class="scroll" style="width:44%;min-width:420px;padding:56px 56px;display:flex;flex-direction:column;' +
-    'justify-content:center;border-right:1px solid rgba(42,31,20,0.10)">' +
-    '<h1 class="serif" style="font-size:64px;font-weight:600;line-height:1;letter-spacing:-.02em;margin:0">Kinship</h1>' +
-    '<div class="han" style="font-size:36px;color:' + C.faint + ';letter-spacing:.12em;margin-top:4px">親情</div>' +
+    'justify-content:center;justify-content:safe center;' +
+    'border-right:1px solid rgba(42,31,20,0.10)">' +
+    // Logo beside the wordmark rather than above it. Stacked, the lockup was
+    // ~96px taller than the column could centre without clipping the top.
+    '<div style="display:flex;align-items:center;gap:20px;margin-bottom:4px">' +
+      '<img src="' + LOGO_SRC + '" alt="" width="99" height="99" ' +
+      'style="display:block;flex-shrink:0;width:99px;height:99px" />' +
+      '<div style="min-width:0">' +
+        '<h1 class="serif" style="font-size:60px;font-weight:600;line-height:1;letter-spacing:-.02em;margin:0">Kinship</h1>' +
+        '<div class="han" style="font-size:30px;line-height:1.1;color:' + C.faint + ';letter-spacing:.12em;margin-top:6px">親情</div>' +
+      '</div>' +
+    '</div>' +
     '<h2 class="serif" style="font-size:26px;font-weight:400;line-height:1.4;margin:28px 0 20px;max-width:380px">' +
     'Know what to call everyone at the table.</h2>' +
     '<p style="font-size:15px;color:' + C.muted + ';line-height:1.7;max-width:380px;margin-bottom:36px">' +
@@ -1906,7 +1939,8 @@ function welcomeScreen() {
     'Teochew terms sourced from The Teochew Store &amp; learnteochew.com.<br />' +
     'Guaranteed-correct within the verified boundary. AI parses intent; rules produce the term.</p>' +
     '</div>' +
-    '<div class="scroll" style="flex:1;padding:56px 56px;display:flex;flex-direction:column;justify-content:center">' +
+    '<div class="scroll" style="flex:1;padding:56px 56px;display:flex;flex-direction:column;' +
+    'justify-content:center;justify-content:safe center">' +
     '<div class="eyebrow" style="margin-bottom:22px">Teochew kinship terms — a sample</div>' +
     '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">' + cards + '</div>' +
     '</div></div>';
@@ -1919,6 +1953,11 @@ function welcomeScreen() {
    storage pressure), and localStorage is per-device. Neither is recoverable
    after the fact, so the app has to make exporting easy and say plainly when
    saving isn't working rather than implying the data is safe. */
+
+/* The mark, inlined as SVG so the app stays a single file you can open from
+   disk and the logo stays sharp at any size. URL-encoded rather than base64:
+   SVG is text, so base64 would add 33% for nothing. */
+var LOGO_SRC = 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 788 788%22><path fill=%22%23B8271E%22 d=%22M232 787C178 784 132 772 97 753C42 721 8 670 1 610C-5 551 18 489 104 330C139 266 159 225 177 188C204 127 216 107 241 82C309 14 427 -13 570 7C624 14 677 29 713 46C742 59 755 71 752 79C750 86 742 88 721 90C713 91 703 92 700 93C665 100 640 120 630 150C621 178 625 210 646 252C652 266 670 299 695 344C739 423 759 465 773 508C788 555 792 592 784 630C773 686 737 731 682 757C646 775 608 784 560 787C538 788 255 788 232 787ZM346 768C348 766 349 766 349 748C350 725 350 713 347 710C345 708 341 708 288 708C228 707 219 707 196 702C168 696 143 684 130 669C127 666 123 660 121 655C118 649 116 647 114 646C111 645 84 645 80 646C78 647 78 648 78 652C79 658 85 671 93 682C116 714 153 733 208 741C229 744 253 745 285 744C311 744 313 744 315 742C318 739 317 738 315 735C313 734 310 733 268 733C228 732 221 732 209 730C167 724 138 711 117 691C107 681 98 668 96 659C95 657 95 657 100 657L106 657L108 662C120 684 147 702 184 711C211 717 230 719 289 719L334 719L334 738L334 758L300 758C217 758 183 754 148 740C108 724 81 700 64 665C59 654 54 640 52 633L52 629L83 629C113 629 114 628 116 626C119 624 118 620 114 618C113 617 101 617 75 617C40 617 38 617 36 619C34 621 34 621 35 628C38 646 49 673 62 690C65 695 73 704 80 710C110 741 150 759 204 765C226 768 240 769 293 769C332 769 344 769 346 768ZM382 767L384 765L384 738C384 719 384 711 383 710C380 706 372 707 370 710C369 711 369 723 369 738C369 765 369 767 373 768C376 769 380 769 382 767ZM416 768C418 767 419 766 420 765C420 763 420 751 420 737C419 708 419 708 412 708C404 708 404 707 404 738L404 765L407 767C410 769 413 770 416 768ZM572 767C634 761 677 743 710 710C730 690 741 671 751 644C756 626 757 620 752 618C747 617 678 617 675 618C670 620 670 626 675 628C677 629 689 629 708 629L738 629L737 632C736 639 730 656 725 666C707 703 675 729 629 745C596 755 567 758 493 758L455 758L455 738L455 719L498 719C565 719 594 716 624 705C649 697 668 683 680 665L684 657L689 657C692 657 694 657 694 658C694 659 693 662 691 665C674 698 635 722 584 729C565 732 551 733 515 733C474 733 472 733 472 739C472 741 473 742 474 743C477 744 528 745 550 744C571 743 587 741 602 737C657 725 693 698 709 659C713 651 712 647 708 646C705 645 679 645 675 646C673 647 671 649 668 655C655 682 623 699 570 706C560 707 545 707 500 708C444 708 442 709 440 710C439 712 439 717 439 737C439 765 439 767 443 768C446 769 558 769 572 767ZM545 691C590 688 619 679 636 662C651 647 655 629 648 603C642 580 614 515 578 435C557 389 514 299 508 287C503 277 497 276 492 282C485 290 482 292 476 294C468 296 457 296 448 293C436 288 435 289 426 298C417 307 411 310 400 311C387 312 376 308 369 300C366 298 363 294 362 293C358 289 356 289 345 293C335 296 324 296 316 294C312 292 309 290 304 285C299 280 298 279 295 279C293 279 290 279 290 280C287 282 236 386 212 438C194 477 164 545 156 563C153 572 147 587 144 597C135 623 135 634 143 650C155 673 191 688 241 691C260 692 527 692 545 691ZM170 660C154 651 151 632 161 600C168 581 201 504 231 439C260 378 298 300 300 300C300 300 303 301 306 302C317 308 331 309 346 306L354 305L358 309C369 319 389 325 407 323C420 321 430 317 439 308L443 305L452 306C457 307 463 308 467 308C475 308 488 305 494 302L498 299L499 301C500 303 504 311 509 320C513 330 522 348 528 361C572 454 623 570 634 604C640 623 639 640 632 651C628 658 617 663 615 658C614 657 614 652 614 647C614 635 612 623 610 617C608 613 600 605 598 605C597 605 598 604 601 602C605 599 609 592 609 588C609 575 590 563 573 567C552 572 544 587 558 601L560 604L554 607C550 609 546 612 543 615C541 617 539 619 539 619C538 619 537 616 535 614C531 608 526 603 519 600L513 596L517 593C521 589 525 583 525 578C525 570 519 562 510 558C503 555 489 554 482 556C470 560 463 568 463 577C463 582 465 587 470 592L473 596L466 600C462 602 457 605 454 609L449 614L446 609C442 603 436 597 428 593L422 590L427 585C431 581 432 579 433 575C436 567 434 561 428 554C415 542 393 541 378 551C372 555 369 560 368 566C368 574 369 578 375 584L380 590L375 592C368 595 361 602 357 608C355 610 354 613 353 613C353 613 351 610 348 607C344 604 339 600 336 598C332 596 329 595 329 594C329 594 330 593 332 591C337 587 340 581 340 576C340 571 337 565 333 561C320 549 293 551 283 564C276 573 277 582 285 590L289 594L283 597C276 601 267 609 265 615C263 617 263 619 262 619C262 619 260 617 257 614C254 611 249 608 245 606L239 603L242 599C247 594 249 589 249 585C247 571 226 561 209 566C195 570 187 580 190 590C191 593 193 596 196 599C198 601 200 603 200 603C200 604 198 605 196 606C194 607 191 610 190 612C185 618 184 624 183 642C183 652 182 660 182 661C180 663 175 662 170 660ZM121 601C125 598 125 595 121 592C119 591 115 590 80 590C59 590 40 590 37 590C31 591 27 596 30 600C31 602 49 603 90 603C116 603 119 602 121 601ZM758 601C761 599 762 595 759 593C757 591 753 591 727 590C687 590 672 590 669 592C666 594 665 598 668 600C670 602 676 603 716 603C749 603 756 602 758 601ZM128 575C135 571 132 567 123 565C119 564 102 564 76 564C39 564 35 565 33 566C29 568 29 572 32 574C36 576 46 577 85 576C115 576 126 576 128 575ZM757 575C761 573 761 569 757 566C755 565 751 564 710 564C668 564 664 565 662 566C659 568 658 572 661 574C663 576 672 577 714 576C743 576 755 576 757 575ZM90 549C94 548 94 548 104 525C109 513 120 489 127 474C148 428 147 429 147 427C146 422 138 421 134 424C131 426 129 429 102 492L82 538L68 538L55 538L59 528C62 519 68 504 81 474C89 456 105 422 110 413L113 407L149 407C169 407 185 407 185 408C185 408 173 435 157 468C119 550 121 546 125 548C128 551 133 550 136 548C138 546 142 538 146 529C155 510 186 442 197 418C202 410 205 402 205 400C205 396 205 396 153 395L104 395L102 397C95 403 46 512 39 537C36 545 36 548 40 549C43 550 85 550 90 549ZM666 548C669 546 669 543 665 534C647 495 638 474 624 444C615 425 608 409 607 408C607 407 614 407 643 407L679 407L685 420C695 439 705 461 714 482C722 501 733 530 735 535L735 538L723 538L710 538L704 523C694 498 674 455 667 439C661 427 659 424 657 423C654 422 648 422 646 425C644 427 646 431 660 462C672 488 681 509 690 531C693 538 696 545 698 547L700 550L725 550C753 550 754 549 754 544C754 542 753 539 752 536C751 533 748 525 746 519C734 484 700 408 691 398L689 396L642 395C593 395 587 395 587 399C587 401 594 417 604 440C617 466 636 509 643 525C650 541 653 547 656 549C658 550 663 550 666 548ZM340 537C344 535 344 531 344 492L344 457L365 457C382 457 388 457 390 456C397 453 397 447 391 443C388 442 384 441 366 441L344 441L344 433L344 425L362 425C382 425 390 424 394 421C397 418 397 417 393 413L390 410L378 409L366 409L369 401C370 397 371 392 372 389C373 385 373 385 377 385C380 384 384 384 386 383C392 383 396 379 395 376C394 370 387 368 360 368L344 368L344 361C344 351 341 347 332 347C324 347 320 353 321 363L321 368L302 368C280 368 273 370 270 374C269 376 269 376 270 379C273 383 275 384 284 385L292 385L294 395C296 401 297 406 298 407C298 409 297 409 286 409C274 409 273 410 271 412C268 414 267 418 269 421C271 424 277 425 300 425L321 425L321 433L321 441L299 441C276 442 271 443 268 447C267 449 267 449 268 452C271 457 275 457 300 457L321 457L321 495C321 526 321 534 322 536C326 540 335 541 340 537ZM393 535C398 533 405 531 408 529C418 524 432 514 437 509C444 500 451 485 452 473L453 468L460 468L468 468L468 495C468 521 469 523 471 526C472 529 474 532 476 533C483 537 488 538 510 539C545 540 556 536 563 521C566 514 567 506 565 502C561 496 550 495 546 501C544 503 543 506 543 510C541 521 538 523 514 523C499 523 494 522 492 519C490 516 490 500 490 483L491 468L500 468C511 467 517 464 519 458C521 454 521 452 521 410C521 386 521 365 520 364C519 360 514 356 509 354C504 353 500 353 466 353C440 353 427 353 424 354C418 356 414 359 412 363C410 367 410 370 410 411C410 452 410 455 412 459C414 463 420 467 426 468C431 468 431 469 427 480C421 500 406 513 380 521C372 524 367 527 367 530C366 534 367 535 370 537C374 540 381 539 393 535ZM277 516C289 509 307 492 313 482C316 477 317 474 314 472C312 469 303 468 301 469C299 470 293 475 287 482C281 488 272 496 267 500C258 507 257 509 257 513C259 518 270 520 277 516ZM390 503C394 501 395 499 394 495C393 492 374 475 368 471C364 469 357 468 353 471C347 474 348 479 356 486C360 489 365 494 368 497C371 500 375 503 377 503C380 505 386 505 390 503ZM443 452C438 452 434 451 433 451C432 450 432 447 432 442L432 435L465 435L498 436L498 443C498 447 498 450 497 451C496 452 490 453 473 453C461 453 447 453 443 452ZM432 412L432 403L466 403L499 403L499 411L498 420L465 420L432 420L432 412ZM320 406C320 405 319 399 317 395C316 390 315 385 315 385C316 385 323 385 333 385L350 386L347 397L344 408L332 409L321 409L320 406ZM432 383C431 378 432 373 434 371C435 369 438 369 466 369C491 369 496 369 497 370C498 371 498 375 499 378C499 383 499 385 497 386C496 387 489 387 464 387L432 387L432 383ZM215 381C216 380 218 378 218 377C219 375 217 372 214 371C213 370 192 370 164 370L117 370L114 372C111 375 112 379 116 381C117 381 137 382 165 382C205 382 213 382 215 381ZM678 380C681 377 681 375 677 372C675 370 674 370 626 370L577 370L575 373C574 374 573 376 574 377C575 382 577 382 628 382C673 382 676 381 678 380ZM230 355C233 352 233 348 229 346C227 345 223 344 178 344L130 344L127 347C125 350 125 350 126 353C128 357 129 357 184 357C226 357 228 356 230 355ZM662 355C667 353 667 349 663 346C661 345 657 344 613 344C564 344 562 345 561 349C560 352 563 356 567 356C568 357 590 357 614 357C655 357 659 357 662 355ZM200 328C203 325 252 228 256 218C258 213 257 212 251 210C244 208 245 207 215 266L188 320L174 320C166 320 160 320 160 319C160 319 166 306 174 291C182 276 196 248 205 230C214 212 221 196 222 196C222 195 238 195 257 195L291 196L277 226C269 242 255 271 245 291C234 313 228 326 229 327C230 332 239 332 243 329C247 324 309 196 310 189C311 184 311 184 259 183L213 183L211 185C209 186 206 193 202 200C195 216 171 264 154 297C146 311 140 324 139 325C138 331 143 332 174 331L198 331L200 328ZM650 330C651 329 652 328 652 327C652 326 645 312 637 295C615 249 604 223 599 201C597 188 597 162 600 151C605 132 614 117 628 103C646 87 664 78 691 75C702 73 707 71 707 69C707 65 696 60 672 52C628 37 589 29 540 23C520 21 469 20 450 22C380 28 327 45 285 77C269 89 257 103 244 122C238 132 236 135 236 137C237 143 239 143 291 143L337 142L342 137C365 109 393 95 440 88C456 86 498 85 517 87C534 88 554 91 569 94C582 97 586 97 589 94C591 92 592 89 590 87C587 85 560 80 533 76C514 74 475 73 457 75C413 78 380 88 355 105C347 110 335 121 330 128L328 131L294 131C275 131 259 131 259 130C254 129 281 98 298 84C328 60 373 43 424 37C465 31 520 32 566 39C599 43 651 56 670 64L673 65L663 69C636 77 615 92 602 110C600 114 597 117 597 117C596 117 584 115 569 113C554 110 539 108 535 107L527 107L523 112C516 122 510 136 505 155C500 174 500 193 505 217C508 229 516 255 523 270C539 306 548 327 551 329C555 333 564 331 564 326C564 325 559 313 554 300C527 241 519 218 518 190C518 172 519 161 524 147C527 136 535 121 537 120C540 119 591 128 590 130C590 130 589 134 587 139C582 154 581 162 581 178C581 193 583 205 588 222C594 241 606 269 623 301C627 310 631 318 631 319C631 321 606 320 604 319C603 317 588 286 579 263C557 211 552 182 560 153C562 148 563 144 562 143C562 140 556 138 553 138C548 140 546 143 543 154C541 163 541 165 541 180C541 203 544 217 554 245C560 260 589 325 591 328C594 331 599 332 627 331C642 331 649 331 650 330ZM400 294C404 292 404 290 404 279C403 269 402 267 396 267C390 267 388 270 388 281C388 290 389 293 392 294C395 295 398 295 400 294ZM342 275C351 269 356 264 356 261C356 257 349 255 345 257C340 259 327 269 325 272C324 275 324 277 327 278C332 280 335 279 342 275ZM467 277C468 276 469 274 469 274C469 271 452 258 446 256C444 256 442 256 440 257C435 261 437 265 448 272C453 275 457 278 458 278C461 279 465 279 467 277ZM426 252C446 250 463 244 471 238C478 234 478 230 473 228C467 226 463 226 450 232C436 239 430 241 414 242C392 244 372 241 353 232C344 228 340 227 337 227C325 227 325 234 337 240C349 246 362 250 378 253C389 254 414 254 426 252ZM437 213C444 206 443 201 436 201C433 201 425 206 424 209C420 215 422 218 429 218C431 218 433 217 437 213ZM464 216C466 213 465 209 462 206C458 203 454 201 451 201C445 201 444 208 449 213C453 217 455 218 460 218C462 218 463 217 464 216ZM368 199C374 194 376 187 371 186C367 184 363 186 358 190C352 197 353 202 360 202C362 202 365 201 368 199ZM396 201C399 197 396 189 389 186C382 184 378 185 378 191C378 198 391 205 396 201ZM434 198C438 196 437 193 432 190C425 186 415 186 412 189C408 195 426 202 434 198ZM470 197C474 195 476 193 476 190C474 185 459 186 453 192C451 194 450 197 453 198C456 200 465 199 470 197ZM448 190C450 189 452 183 451 180C449 173 442 171 438 176C435 179 435 182 436 186C438 192 443 194 448 190ZM368 181L370 179L368 176C363 171 349 169 345 173C343 176 342 176 345 178C348 181 353 183 360 183C365 183 366 183 368 181ZM400 182C404 180 408 177 408 175C408 169 391 170 385 176C383 178 382 181 385 182C387 183 396 183 400 182ZM382 172C386 166 384 160 378 157C374 156 372 157 370 161C364 172 375 182 382 172ZM312 167C315 165 316 161 313 159C311 157 308 157 269 157C232 157 226 157 224 159C222 160 221 164 224 166C226 168 232 169 270 169C303 169 310 168 312 167ZM427 159C432 155 436 148 434 144C431 141 424 142 419 146C412 151 408 158 411 161C415 163 421 163 427 159ZM461 161C465 158 465 155 462 151C459 147 450 142 446 142C443 142 440 145 440 149C440 155 448 161 458 163C458 163 460 162 461 161ZM426 139C430 137 430 135 427 132C421 126 408 123 401 126C396 128 396 131 400 134C406 139 419 141 426 139ZM466 138C475 136 478 133 476 129C476 127 471 125 466 125C458 125 446 131 446 135C446 140 456 141 466 138ZM442 129C447 124 448 115 444 111C440 108 436 107 432 111C424 117 428 131 438 131C439 131 441 130 442 129ZM318 110C341 90 374 74 410 67C437 61 452 60 484 60C522 59 549 62 583 69C607 74 611 75 614 73C618 71 618 68 615 65C613 63 608 62 596 60C490 37 391 46 330 84C315 93 299 107 298 111C297 114 300 117 305 117C309 117 310 116 318 110Z%22/></svg>';
 
 var STORAGE_KEY   = 'kinship.tree.v1';
 var PREFS_KEY     = 'kinship.prefs.v1';
@@ -2223,6 +2262,27 @@ function connectorPath(jx, jy, cx, cy, busY) {
    ══════════════════════════════════════════════════════════════════════════ */
 var _posCache = null, _posKey = '';
 function invalidateLayout() { _posCache = null; _posKey = ''; }
+
+/* The side filter and the marriage toggle are My Family view controls. Ask and
+   Bloom have their own reasons to show or hide people, and inheriting a filter
+   set on another tab makes them look broken — relatives silently missing with
+   no visible control explaining why. The controls only render on My Family, so
+   the setting is neutralised while the other two screens build their markup and
+   restored immediately after. */
+function withFamilyViewNeutral(fn) {
+  var sf = STATE.sideFilter, sm = STATE.showMarriages;
+  if (sf === 'all' && sm) return fn();          // nothing to neutralise
+  STATE.sideFilter = 'all';
+  STATE.showMarriages = true;
+  invalidateLayout();                            // the layout is keyed on both
+  try {
+    return fn();
+  } finally {
+    STATE.sideFilter = sf;
+    STATE.showMarriages = sm;
+    invalidateLayout();
+  }
+}
 
 function POS() {
   var key = (STATE.isDemo ? 'demo' : 'gen') + '|' + (STATE.showMarriages ? 'all' : 'blood') +
@@ -3380,6 +3440,18 @@ function marriedInTo(id) {
   return isBloodRelative(id) ? null : sp;      // blood relatives keep a gender field
 }
 
+/* What would this person's term be if their gender were X? Answered by running
+   the real resolver against a copy, so the preview can never drift from what
+   the app actually produces. */
+function previewPartnerTerm(person, gender) {
+  var original = person.gender, had = ('gender' in person);
+  person.gender = gender;
+  var t = null;
+  try { t = termBetween(STATE.egoId, person.id); } catch (err) { t = null; }
+  if (had) person.gender = original; else delete person.gender;
+  return t;
+}
+
 function roleFieldHtml(person) {
   var host = marriedInTo(person.id);
 
@@ -3389,13 +3461,36 @@ function roleFieldHtml(person) {
       '<div style="display:flex;gap:6px;margin-bottom:4px">' +
       PARTNER_ROLES.map(function (r) {
         var on = (person.partnerRole || '') === r.key;
+        // Show what each choice would actually produce for this person, rather
+        // than naming a fixed example pair that only applies to an aunt or uncle.
+        var would = previewPartnerTerm(person, r.gender);
         return '<button data-act="set-partner-role" data-id="' + person.id + '" data-value="' + r.key + '" ' +
-          'style="flex:1;padding:8px 4px;border-radius:9px;font-size:11.5px;cursor:pointer;' +
+          'style="flex:1;padding:8px 6px;border-radius:9px;font-size:11.5px;cursor:pointer;line-height:1.35;' +
           'border:1px solid ' + (on ? C.paternal : 'rgba(42,31,20,0.18)') + ';background:' +
-          (on ? C.paternal : 'transparent') + ';color:' + (on ? C.cream : C.ink) + '">' + r.label + '</button>';
+          (on ? C.paternal : 'transparent') + ';color:' + (on ? C.cream : C.ink) + '">' + r.label +
+          (would ? '<span class="han" style="display:block;font-size:13px;margin-top:2px;opacity:' +
+            (on ? '.92' : '.65') + '">' + esc(would.characters) + '</span>' : '') +
+          '</button>';
       }).join('') + '</div>' +
-      '<p style="font-size:11px;color:' + C.faint + ';line-height:1.5;margin:0 0 12px">' +
-      'This is what decides the term — 妗 Gim for a wife, 丈 Die[n] for a husband.</p>';
+      (function () {
+        var w = previewPartnerTerm(person, 'female'), h = previewPartnerTerm(person, 'male');
+        var msg;
+        if (!w && !h) {
+          msg = 'This decides which term applies.';
+        } else if (w && h && w.characters === h.characters) {
+          msg = 'Either way the term is ' + w.characters + ' ' + w.romanization +
+                ' — but recording it keeps the rest of the tree accurate.';
+        } else {
+          msg = 'This is what decides the term — ' +
+                (w ? w.characters + ' ' + w.romanization + ' for a wife' : 'no settled term for a wife') +
+                ', ' +
+                (h ? h.characters + ' ' + h.romanization + ' for a husband' : 'no settled term for a husband') + '.';
+        }
+        var prov = (w && w.provisional) || (h && h.provisional);
+        return '<p style="font-size:11px;color:' + (prov ? C.self : C.faint) +
+          ';line-height:1.5;margin:0 0 12px">' + esc(msg) +
+          (prov ? ' One of these has no attested term and is borrowed — the card will say so.' : '') + '</p>';
+      })();
   }
 
   return '<div class="eyebrow" style="margin-bottom:6px">Gender — decides which term applies</div>' +
@@ -4158,14 +4253,22 @@ function askScreen() {
       '<p class="eyebrow" style="margin:0">The chain through the family</p>' + zoomControlsHtml() + '</div>' +
       '<div class="treebox scroll" style="flex:1;min-height:260px;background:' + C.surface +
       ';border-radius:18px;border:1px solid rgba(42,31,20,0.08);margin-bottom:12px">' +
-      treeSvg({ focus: focus, interactive: false, ignoreSideFilter: true }) + '</div>' +
+      treeSvg({ focus: focus, nodeAct: 'pick-from-tree',
+                slots: { A: STATE.connectA, B: STATE.connectB },
+                ignoreSideFilter: true }) + '</div>' +
       '<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;font-size:12px;color:' + C.muted + '">' +
-      '<span style="display:flex;align-items:center;gap:6px"><span style="width:9px;height:9px;border-radius:50%;' +
-      'border:2px solid ' + lineageColor(ca.id) + '"></span>A · ' + esc(displayName(ca)) + '</span>' +
-      '<span style="display:flex;align-items:center;gap:6px"><span style="width:9px;height:9px;border-radius:50%;' +
-      'border:2px solid ' + lineageColor(cb.id) + '"></span>B · ' + esc(displayName(cb)) + '</span>' +
+      '<button data-act="clear-slot" data-slot="A" title="Remove from the pair" ' +
+      'style="display:flex;align-items:center;gap:6px;background:transparent;border:none;cursor:pointer;' +
+      'font-size:12px;color:' + C.muted + ';padding:2px 4px;border-radius:6px">' +
+      '<span style="width:9px;height:9px;border-radius:50%;border:2px solid ' + lineageColor(ca.id) + '"></span>' +
+      'A · ' + esc(displayName(ca)) + '<span style="opacity:.5;margin-left:3px">✕</span></button>' +
+      '<button data-act="clear-slot" data-slot="B" title="Remove from the pair" ' +
+      'style="display:flex;align-items:center;gap:6px;background:transparent;border:none;cursor:pointer;' +
+      'font-size:12px;color:' + C.muted + ';padding:2px 4px;border-radius:6px">' +
+      '<span style="width:9px;height:9px;border-radius:50%;border:2px solid ' + lineageColor(cb.id) + '"></span>' +
+      'B · ' + esc(displayName(cb)) + '<span style="opacity:.5;margin-left:3px">✕</span></button>' +
       '<span>' + steps + ' step' + (steps === 1 ? '' : 's') + ' apart</span>' +
-      '<span style="color:' + C.faint + '">Everyone off the chain is faded back</span>' +
+      '<span style="color:' + C.faint + '">Click either person to unpick them</span>' +
       '<button data-act="reset-connection" style="margin-left:auto;padding:5px 12px;border-radius:20px;' +
       'background:transparent;border:1px solid rgba(42,31,20,0.2);cursor:pointer;font-size:11.5px;color:' +
       C.ink + '">Reset</button>' +
@@ -4903,7 +5006,8 @@ function render() {
     h = onboardScreen();
   } else {
     h = navHtml() + demoBarHtml() + backupNudgeHtml() + '<div class="screen">' +
-      (STATE.route === 'tree' ? treeScreen() : STATE.route === 'ask' ? askScreen() : bloomScreen()) +
+      (STATE.route === 'tree' ? treeScreen()
+        : withFamilyViewNeutral(STATE.route === 'ask' ? askScreen : bloomScreen)) +
       '</div>';
   }
 
@@ -5589,6 +5693,9 @@ document.addEventListener('input', function (e) {
 
 /* Boot. A returning visitor should land back in their tree, not on the welcome
    screen being asked to build one they already have. */
+var favicon = document.getElementById('favicon');
+if (favicon) favicon.href = LOGO_SRC;
+
 loadPrefs();
 initDropTarget();
 if (restore()) {
