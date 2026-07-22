@@ -33,14 +33,51 @@ deploy reaches people immediately. This matters while term data is still
 changing; someone holding a cached copy would see terms you've since corrected.
 
 **`Content-Security-Policy`** — restricts the page to itself and Google Fonts.
-`connect-src 'none'` is the meaningful part: it makes the app structurally
-incapable of sending family data anywhere. If you later add analytics or a
-backend, this line will break them — which is the point. It forces that to be a
-deliberate decision rather than something that quietly happens.
+`connect-src` is the meaningful part. It was `'none'` — the app structurally
+incapable of sending anything anywhere — until term submissions were added
+(July 2026), which was exactly the deliberate decision that line existed to
+force. It is now `'self'`: the page can talk to its own origin (`/api/submit`)
+and still nothing else. The privacy promise survives because of what that
+endpoint accepts — see **Term submissions** below. If you ever add analytics or
+third-party calls, they will still break here, on purpose.
 
 The header applies to `/(.*)`, not to the specific filename. Vercel matches
 headers against the *incoming* request path, so scoping it to
 `/kinship-prototype.html` would leave the homepage at `/` with no policy at all.
+
+---
+
+## Term submissions
+
+When the app has no name for a relationship, visitors can contribute the term
+their family uses. This is the one thing that leaves the visitor's machine, and
+it is deliberately name-free: the payload is a relationship *description*
+("wife's younger brother"), the characters, romanization, and an optional note.
+The two people's names never travel — they exist only in the visitor's local
+session list. "Nobody's family data leaves their machine" still holds; what
+leaves is linguistic data.
+
+The pipeline: the in-app form POSTs to `/api/submit` (a Vercel serverless
+function in `api/submit.js`), which validates, rate-limits, and relays to the
+**Kinship term submissions** database in Notion. The browser can't talk to
+Notion directly — the API needs a secret token and refuses cross-origin browser
+calls — which is why the relay exists.
+
+One-time setup:
+
+1. Create an internal integration at notion.so → Settings → Integrations
+   (or www.notion.so/my-integrations). Copy the secret.
+2. Open the *Kinship term submissions* database page in Notion → `•••` →
+   Connections → add your integration.
+3. In Vercel → Project → Settings → Environment Variables, add:
+   - `NOTION_TOKEN` — the integration secret
+   - `NOTION_DATABASE_ID` — `ab2725bc78cb45fe88917c7258bace98`
+4. Redeploy.
+
+Until those env vars exist, submissions fail gracefully: the visitor sees
+"couldn't send — kept on this device" with a retry, and copy-as-text still
+works. Rows arrive with Status = New; the select options (New / Reviewed /
+Added to app / Rejected) are the review workflow.
 
 ---
 
