@@ -1343,7 +1343,7 @@ function generationSpouseTerm(fromId, toId, viaId, bloodTerm) {
 }
 
 /* ── Public resolution ───────────────────────────────────────────────────── */
-function termBetween(fromId, toId) {
+function termBetween(fromId, toId, noFollow) {
   var ov = STATE.termOverrides[toId];
   if (ov && fromId === STATE.egoId) {
     return { characters: ov.characters, romanization: ov.romanization,
@@ -1372,6 +1372,55 @@ function termBetween(fromId, toId) {
   }
 
   var mySpouse = spouseOf(fromId);
+
+  /* ── Following the spouse ──
+     A married-in spouse borrows their partner's own terms for the partner's
+     side of the family: the partner's parents, grandparents and
+     great-grandparents, and the partner's siblings, cousins and their spouses —
+     everyone at the partner's generation or above. A wife addresses her
+     husband's father as 爸 because he does; a husband addresses his wife's
+     grandmother the way she does. Juniors are never followed — 孫 already
+     reaches them directly (see below). noFollow stops a follow from chaining
+     through a second marriage. */
+  if (mySpouse && !noFollow && toId !== mySpouse) {
+    var partnerTerm = termBetween(mySpouse, toId, true);
+    if (partnerTerm && !partnerTerm.isSelf) {
+      // Generation gap measured against the blood anchor: the person
+      // themselves, or — for a sibling-in-law — the blood relative they married.
+      var anchorId = linkDepths(mySpouse, toId) ? toId : spouseOf(toId);
+      var aLink = anchorId ? linkDepths(mySpouse, anchorId) : null;
+      if (aLink && aLink.dF - aLink.dT >= 0) {
+        var fromP2 = getPerson(fromId), spP2 = getPerson(mySpouse);
+        var my = fromP2 && fromP2.gender === 'male' ? 'his'
+               : fromP2 && fromP2.gender === 'female' ? 'her' : 'their';
+        var spNoun = spP2 && spP2.gender === 'male' ? 'husband'
+                   : spP2 && spP2.gender === 'female' ? 'wife' : 'spouse';
+        var spPron = spP2 && spP2.gender === 'male' ? 'his'
+                   : spP2 && spP2.gender === 'female' ? 'her' : 'their';
+        var spSubj = spP2 && spP2.gender === 'male' ? 'he'
+                   : spP2 && spP2.gender === 'female' ? 'she' : 'they';
+        // Restate the partner's breakdown from the follower's point of view,
+        // when it has one of the two name-free shapes the tables produce.
+        var rel = null;
+        if (partnerTerm.breakdown) {
+          if (/^Your /.test(partnerTerm.breakdown)) {
+            rel = spPron + ' ' + partnerTerm.breakdown.slice(5);
+          } else if (/^(Father|Mother|Grand|Great)/.test(partnerTerm.breakdown)) {
+            rel = spPron + ' ' + partnerTerm.breakdown.charAt(0).toLowerCase() +
+                  partnerTerm.breakdown.slice(1);
+          }
+        }
+        return clone(partnerTerm, {
+          breakdown: 'Follows ' + my + ' ' + spNoun + (rel ? ' — ' + rel : ''),
+          note: 'A spouse follows their partner in addressing the partner’s side — parents, ' +
+            'grandparents and great-grandparents, siblings and their spouses. This is the same ' +
+            'term ' + spSubj + ' uses.' + (partnerTerm.note ? ' ' + partnerTerm.note : ''),
+          derivedFrom: mySpouse,
+          followsSpouse: true
+        });
+      }
+    }
+  }
 
   /* Anyone a generation or more above addresses everyone below them as 孫 Sung —
      it doesn't distinguish sides or blood, so it reaches across a marriage too.
@@ -4200,8 +4249,21 @@ function noRelationCardHtml(a, b) {
 /* Explains why the two directions differ — generation first, then age. */
 function asymmetryNote(aId, bId) {
   var link = linkDepths(aId, bId);
-  if (!link) return 'These two are linked only by marriage, not by blood — which is why Kinship ' +
-    'doesn’t have a name in either direction. If your family uses one, you can add it above.';
+  if (!link) {
+    var tAB = termBetween(aId, bId), tBA = termBetween(bId, aId);
+    if (!tAB && !tBA) {
+      return 'These two are linked only by marriage, not by blood — which is why Kinship ' +
+        'doesn’t have a name in either direction. If your family uses one, you can add it above.';
+    }
+    if ((tAB && tAB.followsSpouse) || (tBA && tBA.followsSpouse)) {
+      return 'Linked through marriage rather than blood. The married-in spouse follows their ' +
+        'partner: the same terms the partner uses for the partner’s elders, siblings and ' +
+        'siblings-in-law. Looking back the other way, the senior side answers with the in-law ' +
+        'or junior term.';
+    }
+    return 'Linked through marriage rather than blood — the terms here are the in-law set, ' +
+      'borrowed through the person who connects them.';
+  }
 
   if (link.dF === link.dT) {
     var age = relativeAge(aId, bId);
