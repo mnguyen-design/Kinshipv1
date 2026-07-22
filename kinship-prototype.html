@@ -365,6 +365,8 @@ var TERM_TABLE = {
   'younger-brother-wife': { characters: '細姆', romanization: 'Soi-m', pronunciation: 'Soy-mm', breakdown: "Younger brother's wife", guaranteed: true, note: '細 Soi (small) distinguishes her from 嫂 Soh, the elder brother\u2019s wife.' },
   'elder-sister-husband':   { characters: '姊夫', romanization: 'Ze-hu',    pronunciation: 'Tse-hoo',    breakdown: "Your elder sister's husband", side: 'self', guaranteed: true },
   'younger-sister-husband': { characters: '妹婿', romanization: 'Mue-sai',  pronunciation: 'Mweh-sai',   breakdown: "Your younger sister's husband", side: 'self', guaranteed: true },
+  'husband': { characters: '翁', romanization: 'Ang', pronunciation: 'Ang', breakdown: 'Your husband', side: 'self', guaranteed: true, addressByName: true, note: 'The everyday word for a husband. Couples commonly address each other by name.' },
+  'wife':    { characters: '𡚸', romanization: 'Bhou', pronunciation: 'Bhou', breakdown: 'Your wife', side: 'self', guaranteed: true, addressByName: true, note: 'The everyday word for a wife. 𡚸 is a dialect character and may not display on every device; couples commonly address each other by name.' },
   'daughter-in-law':        { characters: '媳婦', romanization: 'Sin-pu',   pronunciation: 'Sin-poo',    breakdown: "Your son's wife", guaranteed: true, addressByName: true },
   'son-in-law':             { characters: '仔婿', romanization: 'Gia-sai',  pronunciation: 'Gia-sai',    breakdown: "Your daughter's husband", guaranteed: true, addressByName: true },
   'grandchild-spouse':      { characters: '孫婿', romanization: 'Sung-sai', pronunciation: 'Soong-sai',  breakdown: "The spouse of a nephew, niece or grandchild", guaranteed: true, addressByName: true },
@@ -1352,6 +1354,15 @@ function termBetween(fromId, toId, noFollow) {
 
   var t = relate(fromId, toId);
   if (t) return t;
+
+  // Your own husband or wife. Splits on gender like everything else — with
+  // gender unrecorded, nothing is claimed.
+  if (spouseOf(fromId) === toId) {
+    var ownSp = getPerson(toId);
+    if (ownSp && ownSp.gender === 'male') return clone(TERM_TABLE.husband, {});
+    if (ownSp && ownSp.gender === 'female') return clone(TERM_TABLE.wife, {});
+    return null;
+  }
 
   // Spouse-of-a-blood-relative
   var sp = spouseOf(toId);
@@ -4250,6 +4261,10 @@ function noRelationCardHtml(a, b) {
 function asymmetryNote(aId, bId) {
   var link = linkDepths(aId, bId);
   if (!link) {
+    if (spouseOf(aId) === bId) {
+      return 'Married to each other — the everyday words are 翁 Ang for a husband and 𡚸 Bhou ' +
+        'for a wife, though couples commonly use names.';
+    }
     var tAB = termBetween(aId, bId), tBA = termBetween(bId, aId);
     if (!tAB && !tBA) {
       return 'These two are linked only by marriage, not by blood — which is why Kinship ' +
